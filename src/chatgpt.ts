@@ -71,7 +71,7 @@ export class ChatGPTBot {
 
   cleanMessage(rawText: string, isPrivateChat: boolean = false): string {
     let text = rawText;
-    const item = rawText.split("- - - - - - - - - - - - - - -");
+    const item = rawText.split("- - - -- - - - - - - - - -");
     if (item.length > 1) {
       text = item[item.length - 1];
     }
