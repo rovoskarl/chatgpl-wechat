@@ -3,17 +3,22 @@ import { Message } from "wechaty";
 import { ContactInterface, RoomInterface } from "wechaty/impls";
 import { Configuration, OpenAIApi } from "openai";
 
-// ChatGPT error response configuration
 const chatgptErrorMessage = "🤖️：AI机器人摆烂了，请稍后再试～";
 
-// ChatGPT model configuration
 // please refer to the OpenAI API doc: https://beta.openai.com/docs/api-reference/introduction
 const ChatGPTModelConfig = {
   // this model field is required
-  model: "text-davinci-003",
+  model: "code-davinci-002",
+  prompt: "\"\"\"\nUtil exposes the following:\nutil.openai() -> authenticates & returns the openai module, which has the following functions:\nopenai.Completion.create(\n    prompt=\"<my prompt>\", # The prompt to start completing from\n    max_tokens=123, # The max number of tokens to generate\n    temperature=1.0 # A measure of randomness\n    echo=True, # Whether to return the prompt in addition to the generated completion\n)\n\"\"\"\nimport util\n\"\"\"\nCreate an OpenAI completion starting from the prompt \"Once upon an AI\", no more than 5 tokens. Does not include the prompt.\n\"\"\"\n",
+  temperature: 0,
+  max_tokens: 64,
+  top_p: 1.0,
+  frequency_penalty: 0.0,
+  presence_penalty: 0.0,
+  stop: ["\"\"\""],
   // add your ChatGPT model parameters below
-  temperature: 0.9,
-  max_tokens: 2000,
+  // temperature: 0.9,
+  // max_tokens: 2000,
 };
 
 // message size for a single reply by the bot
@@ -42,10 +47,8 @@ enum MessageType {
 export class ChatGPTBot {
   botName: string = "";
   chatgptTriggerKeyword = Config.chatgptTriggerKeyword;
-  OpenAIConfig: any; // OpenAI API key
-  OpenAI: any; // OpenAI API instance
-
-  // Chatgpt fine-tune for being a chatbot (guided by OpenAI official document)
+  OpenAIConfig: any;
+  OpenAI: any;
   applyContext(text: string): string {
     return `You are an artificial intelligence bot from a company called "OpenAI". Your primary tasks are chatting with users and answering their questions. If the user says "${text}", you will say:`;
   }
@@ -73,7 +76,6 @@ export class ChatGPTBot {
     console.log(`🤖️ ChatGPT Bot Start Success, ready to handle message!`);
   }
 
-  // get clean message by removing reply separater and group mention characters
   cleanMessage(rawText: string, isPrivateChat: boolean = false): string {
     let text = rawText;
     const item = rawText.split("- - - - - - - - - - - - - - -");
@@ -87,7 +89,6 @@ export class ChatGPTBot {
     return text;
   }
 
-  // check whether ChatGPT bot can be triggered
   triggerGPTMessage(text: string, isPrivateChat: boolean = false): boolean {
     const chatgptTriggerKeyword = this.chatgptTriggerKeyword;
     let triggered = false;
@@ -104,36 +105,29 @@ export class ChatGPTBot {
     return triggered;
   }
 
-  // filter out the message that does not need to be processed
   isNonsense(
     talker: ContactInterface,
     messageType: MessageType,
     text: string
   ): boolean {
     return (
-      // self-chatting can be used for testing
       talker.self() ||
       messageType > MessageType.GroupNote ||
       talker.name() == "微信团队" ||
-      // video or voice reminder
       text.includes("收到一条视频/语音聊天消息，请在手机上查看") ||
-      // red pocket reminder
       text.includes("收到红包，请在手机上查看") ||
-      // location information
       text.includes("/cgi-bin/mmwebwx-bin/webwxgetpubliclinkimg")
     );
   }
 
-  // send question to ChatGPT with OpenAI API and get answer
   async onChatGPT(text: string): Promise<string> {
     const inputMessage = this.applyContext(text);
     try {
-      // config OpenAI API request body
       const response = await this.OpenAI.createCompletion({
         ...ChatGPTModelConfig,
         prompt: inputMessage,
       });
-      // use OpenAI API to get ChatGPT reply message
+      console.log('---------', JSON.stringify(response?.data));
       const chatgptReplyMessage = response?.data?.choices[0]?.text?.trim();
       console.log("🤖️ ChatGPT says: ", chatgptReplyMessage);
       return chatgptReplyMessage;
